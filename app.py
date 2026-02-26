@@ -35,9 +35,12 @@ AVATAR_URL = "Dante.png"
 # --- 2. FUNCIONES DE LÓGICA (Backend) ---
 
 def get_img_as_base64(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+    try:
+        with open(file_path, "rb") as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    except:
+        return ""
 
 def conseguir_modelo_disponible():
     try:
@@ -102,24 +105,21 @@ def buscar_informacion(pregunta, textos, fuentes):
         return contexto if hay_relevancia else ""
     except: return ""
 
-# --- 3. DISEÑO VISUAL (CSS AJUSTADO PARA PANTALLA FIJA) ---
+# --- 3. DISEÑO VISUAL ---
 
 def estilos_globales():
     estilos = """
     <style>
-        /* 1. Ocultar scroll general de la página */
         ::-webkit-scrollbar {
             width: 8px;
             background: transparent;
         }
 
-        /* 2. Reducir padding superior drásticamente para subir todo */
         .block-container {
-            padding-top: 2rem !important; /* Más arriba */
+            padding-top: 2rem !important;
             padding-bottom: 0rem !important;
         }
 
-        /* 3. Footer Fijo Minimalista */
         .footer-credits {
             position: fixed;
             left: 0;
@@ -135,13 +135,11 @@ def estilos_globales():
             font-family: sans-serif;
         }
         
-        /* 4. Input ajustado */
         div[data-testid="stBottom"] {
             padding-bottom: 35px; 
             background-color: transparent;
         }
 
-        /* 5. Estilos Burbujas Chat */
         [data-testid="stChatMessageAvatar"] {
             width: 40px !important;
             height: 40px !important;
@@ -151,7 +149,6 @@ def estilos_globales():
             object-fit: contain !important;
         }
 
-        /* Traducción Uploader */
         [data-testid="stFileUploader"] section > div > div > span,
         [data-testid="stFileUploader"] section > div > div > small {
             display: none !important;
@@ -162,11 +159,6 @@ def estilos_globales():
             font-weight: bold;
             color: #444;
             margin-bottom: 5px;
-        }
-        
-        /* CSS Extra para centrar verticalmente elementos */
-        [data-testid="stVerticalBlock"] > [style*="flex-direction: row"] {
-            align-items: center;
         }
     </style>
 
@@ -207,7 +199,7 @@ def interfaz_gestor_archivos():
         if os.path.exists(AVATAR_URL):
             img_b64 = get_img_as_base64(AVATAR_URL)
             st.markdown(
-                f'<img src="data:image/png;base64,{img_b64}" style="width:100%; max-width: 300px;">',
+                f'<img src="data:image/png;base64,{img_b64}" style="width:100%; max-width: 300px; border-radius: 15px;">',
                 unsafe_allow_html=True
             )
             
@@ -247,22 +239,18 @@ def interfaz_chat():
     
     col_izquierda, col_derecha = st.columns([1.2, 3])
     
-    # === COLUMNA 1: AVATAR ESTÁTICO (Siempre visible) ===
     with col_izquierda:
         if os.path.exists(AVATAR_URL):
             img_b64 = get_img_as_base64(AVATAR_URL)
-            # Centrado y fijo
             st.markdown(f"""
                 <div style="display: flex; justify-content: center; align-items: center; height: 85vh;">
-                    <img src="data:image/gif;base64,{img_b64}" style="width: 100%; max-width: 400px; border-radius: 20px;">
+                    <img src="data:image/png;base64,{img_b64}" style="width: 100%; max-width: 400px; border-radius: 20px;">
                 </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("🤖")
 
-    # === COLUMNA 2: ÁREA DE INTERACCIÓN ===
     with col_derecha:
-        # 1. ENCABEZADO COMPACTO
         col_hl, col_ht = st.columns([0.6, 5]) 
 
         with col_hl:
@@ -275,7 +263,6 @@ def interfaz_chat():
                 <p style='margin-top: 0px; color: gray; font-size: 14px;'>Ing. Dante - Tu Tutor Virtual de la FICA</p>
             """, unsafe_allow_html=True)
         
-        # 2. BIENVENIDA (Siempre visible)
         st.markdown("""
         <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 14px;">
             <strong>🦅 ¡Hola compañero! Soy el Ing. Dante.</strong><br>
@@ -284,8 +271,6 @@ def interfaz_chat():
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. VENTANA DE CHAT (REDUCIDA A 380px PARA QUE QUEPA TODO)
-        # Ajustamos height para que no empuje el contenido hacia arriba
         contenedor_chat = st.container(height=380, border=True)
 
         modelo, status = conseguir_modelo_disponible()
@@ -305,14 +290,12 @@ def interfaz_chat():
                 with st.chat_message(message["role"], avatar=icono):
                     st.markdown(message["content"])
 
-        # 4. INPUT (Fijo abajo)
         if prompt := st.chat_input("Escribe tu consulta aquí..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.rerun()
 
-        # Lógica de respuesta
         if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-            prompt = st.session_state.messages[-1]["content"]
+            prompt_actual = st.session_state.messages[-1]["content"]
             
             with contenedor_chat:
                  with st.chat_message("assistant", avatar=avatar_bot):
@@ -321,7 +304,7 @@ def interfaz_chat():
                     
                     try:
                         textos, fuentes = leer_pdfs_locales()
-                        contexto_pdf = buscar_informacion(prompt, textos, fuentes)
+                        contexto_pdf = buscar_informacion(prompt_actual, textos, fuentes)
                         
                         prompt_sistema = f"""
                         Eres el **Ing. Dante** (Tutor Virtual FICA - UCE).
@@ -330,7 +313,7 @@ def interfaz_chat():
                         CONTEXTO:
                         {contexto_pdf}
                         
-                        PREGUNTA: {prompt}
+                        PREGUNTA: {prompt_actual}
                         """
                         
                         model = genai.GenerativeModel(modelo)
